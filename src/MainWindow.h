@@ -16,6 +16,8 @@ public:
     ~MainWindow();
 
 private:
+    void createSourceDataFile();
+
     Ui::MainWindow *ui;
 };
 #endif // MAINWINDOW_H

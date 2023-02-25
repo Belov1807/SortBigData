@@ -2,14 +2,19 @@
 #include "ui_MainWindow.h"
 #include <QFile>
 #include <QDebug>
+#include <QDateTime>
+#include <QFileInfo>
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+
+MainWindow::MainWindow(QWidget *parent) :
+    QMainWindow(parent),
+    ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
 
-    QMultiMap<int, QPair<long int, QString> > dataDictionary;
+    createSourceDataFile();
+
+    /*QMultiMap<int, QPair<long int, QString> > dataDictionary;
     long int counter = 0;
 
     QFile dataFile("data/data.txt");
@@ -38,10 +43,54 @@ MainWindow::MainWindow(QWidget *parent)
 
         iterator ++;
     }
-    dataFile2.close();
+    dataFile2.close();*/
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::createSourceDataFile()
+{
+    qint64 timeStart = QDateTime::currentMSecsSinceEpoch();
+
+    QFile dataFile("../data/data.txt");
+    dataFile.open(QFile::WriteOnly);
+
+    qsrand(QDateTime::currentMSecsSinceEpoch());
+    int randomeLineSize = (qrand() % ((40 + 1) - 1) + 1);
+
+    int fileSizeInMb = 0;
+
+    while (fileSizeInMb < 1000)
+    {
+        QFileInfo fileInfo(dataFile);
+           fileSizeInMb = fileInfo.size() / 1000000;
+           QString *randomLine = new QString();
+
+        for (int i = 0; i < randomeLineSize; i ++)
+        {
+            char symbol = (qrand() % ((122 + 1) - 65) + 65);
+
+            randomLine->append(symbol);
+
+        }
+        dataFile.write(randomLine->toUtf8() + '\n');
+        dataFile.flush();
+        delete randomLine;
+        randomeLineSize = (qrand() % ((40 + 1) - 1) + 1);
+    }
+
+
+    dataFile.close();
+
+    qint64 timeFinish = QDateTime::currentMSecsSinceEpoch();
+
+    qint64 leadTime = timeFinish - timeStart;
+
+    QTime time(0, 0);
+    time = time.addMSecs(leadTime);
+
+    qDebug() << "Время выполнения = " << time.toString("mm") << " минут, "<< time.toString("ss") << " секунд, ";
 }
