@@ -4,6 +4,8 @@
 #include <QDebug>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QThread>
+
 
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -12,7 +14,11 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    createSourceDataFile();
+    QThread* thread = QThread::create(std::bind(&MainWindow::createSourceDataFile, this));
+    thread->start();
+
+    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+
 
     /*QMultiMap<int, QPair<long int, QString> > dataDictionary;
     long int counter = 0;
@@ -53,7 +59,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::createSourceDataFile()
 {
-    qint64 timeStart = QDateTime::currentMSecsSinceEpoch();
+    qint64 timeStart = QDateTime::currentSecsSinceEpoch();
 
     QFile dataFile("../data/data.txt");
     dataFile.open(QFile::WriteOnly);
@@ -61,27 +67,62 @@ void MainWindow::createSourceDataFile()
     qsrand(QDateTime::currentMSecsSinceEpoch());
     int randomeLineSize = (qrand() % ((40 + 1) - 1) + 1);
 
-    int fileSizeInMb = 0;
+    int finishFileSizeInMb = 1000;
+    int currentFileSizeInMb = 0;
+    int oldCurrentFileSizeInMb = 0;
+    int percent = 0;
+    int oldPercent = 0;
 
-    while (fileSizeInMb < 1000)
+    qint64 currentTime = QDateTime::currentSecsSinceEpoch();
+    qint64 oldCurrentTime = 0;
+
+    while (currentFileSizeInMb < finishFileSizeInMb)
     {
         QFileInfo fileInfo(dataFile);
-           fileSizeInMb = fileInfo.size() / 1000000;
-           QString *randomLine = new QString();
+
+        oldCurrentFileSizeInMb = currentFileSizeInMb;
+        currentFileSizeInMb = fileInfo.size() / 1000000;
+        if (oldCurrentFileSizeInMb != currentFileSizeInMb)
+            ui->label_7->setText(QString("%0 Мб из %1 Мб").arg(currentFileSizeInMb).arg(finishFileSizeInMb));
+
+        oldPercent = percent;
+        percent = (currentFileSizeInMb * 100) / finishFileSizeInMb;
+        if (oldPercent != percent)
+            ui->progressBar->setValue(percent);
+
+        oldCurrentTime = currentTime;
+        currentTime = QDateTime::currentSecsSinceEpoch();
+
+        if (oldCurrentTime != currentTime)
+        {
+
+            int leadTime = currentTime - timeStart;
+            double middleSpeed = (double)currentFileSizeInMb / (double)leadTime;
+
+            int lost = (finishFileSizeInMb -  currentFileSizeInMb) / middleSpeed;
+            QTime lostTime(0, 0);
+            lostTime = lostTime.addSecs(lost);
+            ui->label_5->setText(QString("%0 минут, %1 секунд").arg(lostTime.toString("mm")).arg(lostTime.toString("ss")));
+
+            ui->label_9->setText(QString("%0 мб/сек").arg(middleSpeed));
+            QTime time(0, 0);
+            time = time.addSecs(leadTime);
+            ui->label_3->setText(QString("%0 минут, %1 секунд").arg(time.toString("mm")).arg(time.toString("ss")));
+
+        }
+        QString *randomLine = new QString();
 
         for (int i = 0; i < randomeLineSize; i ++)
         {
             char symbol = (qrand() % ((122 + 1) - 65) + 65);
 
             randomLine->append(symbol);
-
         }
         dataFile.write(randomLine->toUtf8() + '\n');
         dataFile.flush();
         delete randomLine;
         randomeLineSize = (qrand() % ((40 + 1) - 1) + 1);
     }
-
 
     dataFile.close();
 
@@ -91,6 +132,4 @@ void MainWindow::createSourceDataFile()
 
     QTime time(0, 0);
     time = time.addMSecs(leadTime);
-
-    qDebug() << "Время выполнения = " << time.toString("mm") << " минут, "<< time.toString("ss") << " секунд, ";
 }
